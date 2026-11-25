@@ -98,6 +98,27 @@ def refuse_misplaced_builtin_identifiers(program, target) -> int:
             continue
         for function in _stage_functions(stage, program_functions):
             nodes = _nodes(function)
+            if str(target or "").lower() in {"opengl", "glsl", "ogl"}:
+                for node in nodes:
+                    if (
+                        isinstance(node, A.FunctionCallNode)
+                        and call_name(node) == "subgroupMemoryBarrierShared"
+                    ):
+                        checked += 1
+                        if stage_name not in {
+                            "compute",
+                            "mesh",
+                            "task",
+                            "amplification",
+                            "object",
+                        }:
+                            raise BuiltinValueUnsupportedError(
+                                f"subgroupMemoryBarrierShared in '{getattr(function, 'name', '')}' "
+                                f"of the {stage_name} stage is not available in GLSL; "
+                                "GL_KHR_shader_subgroup permits shared-memory subgroup barriers "
+                                "only in compute, mesh and task stages",
+                                str(target or ""),
+                            )
             declared = program_names | _declared(function, nodes)
             for node in nodes:
                 if not isinstance(node, A.IdentifierNode) or node.name in declared:
